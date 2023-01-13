@@ -210,7 +210,7 @@ st.subheader("Most of the code copied straight from https://github.com/blackary/
 
 show_pages(
     [
-        Page("main_page.py", "Home", "🏠"),
+        Page("streamlit_app.py", "Home", "🏠"),
         Page("secondary_page.py", "Secondary Page", "📄"),
     ]
 )
