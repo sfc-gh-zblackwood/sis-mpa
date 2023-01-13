@@ -4,57 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import streamlit as st
-from streamlit.source_util import _on_pages_changed, get_pages
-
-try:
-    from streamlit.runtime.scriptrunner import get_script_run_ctx
-except ImportError:
-    from streamlit.scriptrunner.script_run_context import (  # type: ignore
-        get_script_run_ctx,
-    )
-
-from streamlit.errors import StreamlitAPIException
-
-try:
-    from streamlit.source_util import page_icon_and_name
-except ImportError:
-    from streamlit.source_util import page_name_and_icon  # type: ignore
-
-    def page_icon_and_name(script_path: Path) -> tuple[str, str]:
-        icon, name = page_name_and_icon(script_path)
-        return name, icon
-
-
+from streamlit.source_util import _on_pages_changed, get_pages, page_icon_and_name
 from streamlit.util import calc_md5
-
-
-def add_page_title(add_icon: bool = True, also_indent: bool = True):
-    """
-    Adds the icon and page name to the page as an st.title, and also sets the
-    page title and favicon in the browser tab.
-    """
-    pages = get_pages("")
-    ctx = get_script_run_ctx()
-    if ctx is not None:
-        try:
-            current_page = pages[ctx.page_script_hash]
-        except KeyError:
-            return
-
-        page_title = current_page["page_name"]
-        page_icon = current_page["icon"]
-        try:
-            st.set_page_config(page_title=page_title, page_icon=page_icon)
-        except StreamlitAPIException:
-            pass
-
-        if add_icon:
-            st.title(f"{page_icon} {page_title}")
-        else:
-            st.title(page_title)
-
-        if also_indent:
-            add_indentation()
 
 
 @dataclass
@@ -76,7 +27,6 @@ class Page:
     path: str
     name: str | None = None
     icon: str | None = None
-    is_section: bool = False
 
     @property
     def page_path(self) -> Path:
@@ -98,8 +48,6 @@ class Page:
 
     @property
     def page_hash(self) -> str:
-        if self.is_section:
-            return calc_md5(f"{self.page_path}_{self.page_name}")
         return calc_md5(str(self.page_path))
 
     def to_dict(self) -> dict[str, str | bool]:
@@ -108,7 +56,6 @@ class Page:
             "page_name": self.page_name,
             "icon": self.page_icon,
             "script_path": str(self.page_path),
-            "is_section": self.is_section,
         }
 
     @classmethod
@@ -117,13 +64,7 @@ class Page:
             path=str(page_dict["script_path"]),
             name=str(page_dict["page_name"]),
             icon=str(page_dict["icon"]),
-            is_section=bool(page_dict["is_section"]),
         )
-
-
-class Section(Page):
-    def __init__(self, name: str, icon: str | None = None):
-        super().__init__(path="", name=name, icon=icon, is_section=True)
 
 
 def show_pages(pages: list[Page]):
@@ -138,71 +79,15 @@ def show_pages(pages: list[Page]):
         return
 
     try:
-        default_page = [p.path for p in pages if p.path][0]
+        [p.path for p in pages if p.path][0]
     except IndexError:
         raise ValueError("Must pass at least one page to show_pages")
-
-    for page in pages:
-        if page.is_section:
-            page.path = default_page
 
     current_pages.clear()
     for page in pages:
         current_pages[page.page_hash] = page.to_dict()
 
     _on_pages_changed.send()
-
-
-def _get_indentation_code() -> str:
-    styling = ""
-    current_pages = get_pages("")
-
-    is_indented = False
-
-    for idx, val in enumerate(current_pages.values()):
-        if val.get("is_section"):
-            styling += f"""
-                li:nth-child({idx + 1}) a {{
-                    pointer-events: none; /* Disable clicking on section header */
-                }}
-            """
-            is_indented = True
-        elif is_indented:
-            # Unless specifically unnested, indent all pages that aren't section headers
-            styling += f"""
-                li:nth-child({idx + 1}) span:nth-child(1) {{
-                    margin-left: 1.5rem;
-                }}
-            """
-
-    styling = f"""
-        <style>
-            {styling}
-        </style>
-    """
-
-    return styling
-
-
-def add_indentation():
-    """
-    For an app that has set one or more "sections", this will add indentation
-    to the files "within" a section, and make the sections itself
-    unclickable. Makes the sidebar look like something like this:
-    - page 1
-    - section 1
-        - page 2
-        - page 3
-    - section 2
-        - page 4
-    """
-
-    styling = _get_indentation_code()
-
-    st.write(
-        styling,
-        unsafe_allow_html=True,
-    )
 
 
 st.title("MultiPage App Example")
