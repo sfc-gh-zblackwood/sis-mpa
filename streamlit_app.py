@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import streamlit as st
 from streamlit.source_util import _on_pages_changed, get_pages
@@ -15,7 +16,7 @@ class Page:
 
     @property
     def page_hash(self) -> str:
-        return calc_md5(self.path)
+        return calc_md5(str(Path(self.path).absolute()))
 
     def to_dict(self) -> dict[str, str | bool]:
         return {
